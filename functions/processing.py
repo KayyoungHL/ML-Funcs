@@ -25,7 +25,8 @@ def boolean(x):
 
 
 async def set_transpose(item: Request) -> str:
-    return pd.read_json(await item.json()).transpose().to_json(orient="records")
+    df = pd.read_json(await item.json()).set_index("index")
+    return df.transpose().reset_index().to_json(orient="records")
 
 
 async def set_groupby(
@@ -80,7 +81,7 @@ async def set_groupby(
     if not func in FUNCTIONS:
         return f'"{func}" is invalid function. "func" should be in {FUNCTIONS}'
     
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
 
     ## by
     try:
@@ -139,7 +140,7 @@ async def set_groupby(
         dropna     = dropna
     )
     
-    return FUNCTIONS[func](df_group).reset_index().to_json(orient="records")
+    return FUNCTIONS[func](df_group).reset_index().rename({"index":""}).to_json(orient="records")
 
 
 async def set_drop(
@@ -182,7 +183,7 @@ async def set_drop(
     if errors not in ["raise", "ignore"]:
         return f'"errors" should be "raise" or "ignore". current errors = {errors}'
 
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
 
     ## axis
     try:
@@ -221,7 +222,7 @@ async def set_drop(
         # columns=None,
         # level=None,
         # inplace=False,
-    ).to_json(orient="records")
+    ).reset_index().to_json(orient="records")
 
 
 async def set_dropna(
@@ -277,7 +278,7 @@ async def set_dropna(
         except:
             return f'"thresh" should be positive integer. current thresh = {thresh}'
 
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
 
     ## subset => dropna를 하면서 삭제하고 싶은 컬럼을 적으면 된다.
     # column label or sequence of labels, optional
@@ -298,7 +299,7 @@ async def set_dropna(
         thresh  = thresh,
         subset  = subset,
         # inplace = False,
-    ).to_json(orient="records")
+    ).reset_index().to_json(orient="records")
 
 
 async def set_rename(
@@ -336,7 +337,7 @@ async def set_rename(
     copy   = "true"   if copy   == "" else copy
     errors = "ignore" if errors == "" else errors
 
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
 
     ## keys
     try:
@@ -373,7 +374,7 @@ async def set_rename(
         axis   = 1,
         copy   = copy,
         errors = errors,
-    ).to_json(orient="records")
+    ).reset_index().to_json(orient="records")
 
 
 async def set_sort_values(
@@ -417,7 +418,7 @@ async def set_sort_values(
     ig_idx = "false"     if ig_idx == "" else ig_idx
     key    = None        if key    == "" else key
 
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
 
     ## by
     try:
@@ -470,7 +471,7 @@ async def set_sort_values(
         ignore_index = ig_idx,
         key          = key, # 현재 미구현
         # inplace      = inplace,
-    ).to_json(orient="records")
+    ).reset_index().to_json(orient="records")
 
 
 async def set_merge(
@@ -497,7 +498,7 @@ async def set_merge(
     ```
     Args:
     ```
-    item        (Request, required): JSON
+    item        (Request, required): JSON {"left":DataFrame, "right":DataFrame}
     *
     how         (str,     optional): Default "inner", inner: inner join, outer: outer join
     on          (str,     optional): Default None,    조인할 대상 컬럼(양쪽 DataFrame에 다 있어야 함)
@@ -530,9 +531,9 @@ async def set_merge(
     indicator   = "false" if indicator   == "" else indicator
     validate    = None    if validate    == "" else validate
 
-    item = json.loads(await item.json())
-    df_left = pd.DataFrame(item["left"])
-    df_right = pd.DataFrame(item["right"])
+    item = await item.json()
+    df_left = pd.read_json(item["left"]).set_index("index")
+    df_right = pd.read_json(item["right"]).set_index("index")
 
     ## how
     if how not in {"left", "right", "outer", "inner", "cross"}:
@@ -620,7 +621,7 @@ async def set_merge(
         copy         = copy,        #: bool = True,
         indicator    = indicator,   #: bool = False,
         validate     = validate,    #: str | None = None,
-    ).to_json(orient="records")
+    ).reset_index().to_json(orient="records")
 
 
 async def set_concat(
@@ -642,7 +643,7 @@ async def set_concat(
     ```
     Args:
     ```
-    item       (Request, required): JSON
+    item       (Request, required): JSON {"left":DataFrame, "right":DataFrame}
     *
     axis       (str,     optional): Default 0,       row(0), column(1)
     join       (str,     optional): Default "outer", "inner", "outer"
@@ -669,9 +670,9 @@ async def set_concat(
     sort       = "false" if sort       == "" else sort
     copy       = "true"  if copy       == "" else copy
 
-    item = json.loads(await item.json())
-    df_left = pd.DataFrame(item["left"])
-    df_right = pd.DataFrame(item["right"])
+    item = await item.json()
+    df_left = pd.read_json(item["left"]).set_index("index")
+    df_right = pd.read_json(item["right"]).set_index("index")
 
     if type(df_left) == type(df_right) == pd.DataFrame:
         objs = [df_left, df_right]
@@ -745,7 +746,7 @@ async def set_concat(
         verify_integrity = veri_integ, #: bool = False,
         sort             = sort,       #: bool = False,
         copy             = copy,       #: bool = True,
-    ).to_json(orient="records")
+    ).reset_index().to_json(orient="records")
 
 
 from collections import deque
@@ -806,7 +807,7 @@ async def set_column(
     func     = None if func     == "" else func
     cols_ops = None if cols_ops == "" else cols_ops
 
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
     dfcols = set(df.columns)
     # left: df[col], right: some function
     # df[col] =
@@ -884,14 +885,29 @@ async def set_column(
         df_func = df[cols] if cols else df[:,col_from:col_to]
         df[col] = FUNCTIONS[func](df_func)(axis=1)
 
-    return df.to_json(orient="records")
+    return df.reset_index().to_json(orient="records")
 
 
 async def set_astype(item: Request, col:str, dtype:str) -> str:
-    if dtype not in ["int", "float", "category", "object"]:
+    """
+    ```python
+    pandas.DataFrame[col].astype(dtype) #을 구현한 함수 
+    ```
+    Args:
+    ```
+    item (Request, required): JSON
+    col  (str    , required): column 명
+    dtype(str    , required): ["int", "float", "category", "object", "datetime64[ns]"] 중 하나
+    ```
+    Returns:
+    ```
+    str: JSON
+    ```
+    """
+    if dtype not in ["int", "float", "category", "object", "datetime64[ns]"]:
         return f"{dtype}: 올바르지 않은 데이터 타입"
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
     if col not in set(df.columns):
         return f"{col}: 존재하지 않는 컬럼"
     df[col] = df[col].astype(dtype)
-    return df.to_json(orient="records")
+    return df.reset_index().to_json(orient="records")

@@ -37,6 +37,6 @@ async def create_upload_file(file: UploadFile):
     await file.close()
 
     print(df.head())
-    return df.to_json(orient="records") # 판다스의 to_json()과 완전 동일한 함수
+    return df.reset_index().to_json(orient="records") # 판다스의 to_json()과 완전 동일한 함수
 
 

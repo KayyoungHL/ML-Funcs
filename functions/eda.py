@@ -19,15 +19,17 @@ async def get_tail(item: Request, *, line: Optional[str] = Query(5, max_length=5
 
 
 async def get_shape(item: Request) -> str:
-    return json.dumps(pd.read_json(await item.json()).shape)
+    df = pd.read_json(await item.json()).set_index("index")
+    return json.dumps(df.shape)
 
 
-async def get_dtype(item: Request) -> str:    
-    return pd.read_json(await item.json()).dtypes.reset_index(name='Dtype').rename(columns={"index":"Column"}).to_json(orient="records", default_handler=str)
+async def get_dtype(item: Request) -> str:
+    return pd.read_json(await item.json()).set_index("index").dtypes.reset_index(name='Dtype').rename(columns={"index":"Column"}).to_json(orient="records", default_handler=str)
 
 
 async def get_columns(item: Request) -> str:
-    return f"{list(pd.read_json(await item.json()).columns)}"
+    df = pd.read_json(await item.json()).set_index("index")
+    return f"{list(df.columns)}"
 
 
 # async def get_unique(item: Request) -> str:
@@ -42,7 +44,7 @@ async def get_unique(item: Request, col: str) -> str:
     """입력이 DataFrame의 JSON일 경우
 
     /file/unique/컬럼명 에서 컬럼명이 DataFrame에 없을 경우 에러메시지를 리턴한다."""
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
     try:
         if col not in df.columns:
             return f"{col} is not in columns of DataFrame. It should be in {list(df.columns)}"
@@ -67,10 +69,11 @@ async def get_na(item: Request, *, sum: Optional[str] = Query("false", max_lengt
     (str): JSON
     ```
     """
+    df = pd.read_json(await item.json()).set_index("index")
     if   sum.lower() == "true" : 
-        return pd.read_json(await item.json()).isna().sum().reset_index(name='NumOfNaN')\
+        return df.isna().sum().reset_index(name='NumOfNaN')\
             .rename(columns={"index":"Column"}).to_json(orient="records", default_handler=str)
-    elif sum.lower() == "false": return pd.read_json(await item.json()).isna().to_json(orient="records")
+    elif sum.lower() == "false": return df.isna().to_json(orient="records")
     else                       : return "sum은 true or false를 넣으셔야 합니다."
 
 
@@ -121,7 +124,7 @@ async def get_corr(
     except: 
         return "req_min should be positive integer"
     
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
     dfcols = list(df.columns)
     if col1 and col1 not in dfcols: return f"{col1} is not in columns of DataFrame. It should be in {dfcols}"
     if col2 and col2 not in dfcols: return f"{col2} is not in columns of DataFrame. It should be in {dfcols}"
@@ -246,7 +249,7 @@ async def get_describe(
     "bool"       # 
     """
 
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
     chk = {str(i) for i in df.dtypes.unique()}
     
     include = []
@@ -327,7 +330,7 @@ async def get_col_condition(
     cond2  = None if cond2  == "" else cond2
     value2 = None if value2 == "" else value2
 
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
     
     if cond1 not in ["eq", "gr", "gr_eq", "le", "le_eq"]:
         return f'"cond1" should be in ["eq", "gr", "gr_eq", "le", "le_eq"], current {cond1}'
@@ -380,7 +383,7 @@ async def get_col_condition(
             elif cond1 == "le_eq": df = df[df[col] <= value1]
         
         # print(df)
-        return df.to_json(orient="records")
+        return df.reset_index().to_json(orient="records")
     else:
         return f"{col} is not in columns of DataFrame. It should be in {dfcols}"
 
@@ -426,7 +429,7 @@ async def get_loc(
     col_from  = None if col_from == "" else col_from
     col_to    = None if col_to   == "" else col_to
 
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
 
     if str(df.index.dtype) == "int64":
         if idx is None: 
@@ -478,7 +481,7 @@ async def get_loc(
     else                              : df = df.loc[idx, cols]
     
     # print(df)
-    return df.to_json(orient="records")
+    return df.reset_index().to_json(orient="records")
 
 
 async def get_iloc(
@@ -522,7 +525,7 @@ async def get_iloc(
     col_from  = None if col_from == "" else col_from
     col_to    = None if col_to   == "" else col_to
     
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
 
     if idx is None: 
         if idx_from is not None: 
@@ -564,4 +567,4 @@ async def get_iloc(
     else                              : df = df.iloc[idx, cols]
     
     # print(df)
-    return df.to_json(orient="records")
+    return df.reset_index().to_json(orient="records")

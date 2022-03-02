@@ -3,9 +3,9 @@ from fastapi import Request, Query
 import json
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from category_encoders import OneHotEncoder, OrdinalEncoder, TargetEncoder
 # import modin.pandas as pd
+from sklearn.model_selection import train_test_split
+# from category_encoders import OneHotEncoder, OrdinalEncoder, TargetEncoder
 
 def boolean(x):
     if   x.lower() == "true" : return True
@@ -32,7 +32,7 @@ async def set_feature_target_split(
     str: JSON, {"X":feature_df, "y":target_df}
     ```
     """
-    df = pd.read_json(await item.json())
+    df = pd.read_json(await item.json()).set_index("index")
 
     dfcols = set(df.columns)
     try:    cols = [i.strip() for i in cols.split(",") if i.strip() != ""]
@@ -43,8 +43,8 @@ async def set_feature_target_split(
     X = df.drop(cols, axis=1)
 
     return json.dumps( {
-        "X": X.to_json(orient="records"),
-        "y": y.to_json(orient="records"),
+        "X": X.reset_index().to_json(orient="records"),
+        "y": y.reset_index().to_json(orient="records"),
     } )
 
 
@@ -52,13 +52,11 @@ async def set_train_test_split(
     item        : Request,
     *,
     test_size   : Optional[str] = Query(None,    max_length=50),
-    # train_size  : Optional[str] = Query(None,    max_length=50),
     random_state: Optional[str] = Query(None,    max_length=50),
     shuffle     : Optional[str] = Query("true",  max_length=50),
     stratify    : Optional[str] = Query("false", max_length=50),
     valid       : Optional[str] = Query("false", max_length=50),
     valid_size  : Optional[str] = Query(None,    max_length=50),
-    # v_train_size: Optional[str] = Query(None,    max_length=50),
 ) -> str:
     """
     ```python
@@ -72,11 +70,12 @@ async def set_train_test_split(
     ```
     item         (Request, required): JSON, {"X":X_dataframe, "y":y_dataframe}
     *,
-    test_size    (str,     optional): Default = None,   0~1 사이의 소수. 테스트 셋의 비율
-    train_size   (str,     optional): Default = None,   0~1 사이의 소수. 트레인 셋의 비율
-    random_state (str,     optional): Default = None,   아무 정수. 랜덤 시드
-    shuffle      (str,     optional): Default = "true", 셔플 여부. true 셔플함, false, 셔플 안함
-    stratify     (str,     optional): Default = None,   타겟을 지정. train, valid split할 때 y를 입력하면 됨.
+    test_size    (str,     optional): Default = None,    0~1 사이의 소수. 테스트 셋의 비율
+    random_state (str,     optional): Default = None,    아무 정수. 랜덤 시드
+    shuffle      (str,     optional): Default = "true",  셔플 여부. true 셔플함, false, 셔플 안함
+    stratify     (str,     optional): Default = "false", 타겟을 지정. train, valid split할 때 true를 입력하면 됨.
+    valid        (str,     optional): Default = "false", train, valid, test를 나눌때 true로 
+    valid_size   (str,     optional): Default = None,    valid 비율
     ```
     Returns:
     ```
@@ -87,20 +86,27 @@ async def set_train_test_split(
         "y_train": y_train.to_json(orient="records"),
         "y_test" : y_test .to_json(orient="records"),
     }
+    or 
+    {
+        "X_train": X_train.to_json(orient="records"),
+        "X_valid": X_valid.to_json(orient="records"),
+        "X_test" : X_test .to_json(orient="records"),
+        "y_train": y_train.to_json(orient="records"),
+        "y_valid": y_valid.to_json(orient="records"),
+        "y_test" : y_test .to_json(orient="records"),
+        }
     ```
     """
     test_size    = None    if test_size    == "" else test_size
-    # train_size   = None    if train_size   == "" else train_size
     random_state = None    if random_state == "" else random_state
     shuffle      = "true"  if shuffle      == "" else shuffle
     stratify     = "false" if stratify     == "" else stratify
     valid        = "false" if valid        == "" else valid
     valid_size   = None    if valid_size   == "" else valid_size
-    # v_train_size = None    if v_train_size == "" else v_train_size
 
     dfs = await item.json()
-    X = pd.read_json(dfs["X"])
-    y = pd.read_json(dfs["y"])
+    X = pd.read_json(dfs["X"]).set_index("index")
+    y = pd.read_json(dfs["y"]).set_index("index")
 
     ## test_size:    0 < test_size < 1 인 float
     if test_size is not None:
@@ -144,7 +150,6 @@ async def set_train_test_split(
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, # *arrays
         test_size    = test_size,
-        # train_size   = train_size,
         random_state = random_state,
         shuffle      = shuffle,
         stratify     = y if stratify else None,
@@ -163,18 +168,17 @@ async def set_train_test_split(
         X_train, X_valid, y_train, y_valid = train_test_split(
             X_train, y_train, # *arrays
             test_size    = valid_size,
-            # train_size   = train_size,
             random_state = random_state,
             shuffle      = shuffle,
             stratify     = y_train if stratify else None,
         )
         return json.dumps( {
-            "X_train": X_train.to_json(orient="records"),
-            "X_valid": X_valid.to_json(orient="records"),
-            "X_test" : X_test.to_json(orient="records"),
-            "y_train": y_train.to_json(orient="records"),
-            "y_valid": y_valid.to_json(orient="records"),
-            "y_test" : y_test.to_json(orient="records"),
+            "X_train": X_train.reset_index().to_json(orient="records"),
+            "X_valid": X_valid.reset_index().to_json(orient="records"),
+            "X_test" : X_test .reset_index().to_json(orient="records"),
+            "y_train": y_train.reset_index().to_json(orient="records"),
+            "y_valid": y_valid.reset_index().to_json(orient="records"),
+            "y_test" : y_test .reset_index().to_json(orient="records"),
         } )
 
     # 시계열 기준일 경우 
@@ -182,10 +186,10 @@ async def set_train_test_split(
     # stratify = None
 
     return json.dumps( {
-        "X_train": X_train.to_json(orient="records"),
-        "X_test" : X_test.to_json(orient="records"),
-        "y_train": y_train.to_json(orient="records"),
-        "y_test" : y_test.to_json(orient="records"),
+        "X_train": X_train.reset_index().to_json(orient="records"),
+        "X_test" : X_test .reset_index().to_json(orient="records"),
+        "y_train": y_train.reset_index().to_json(orient="records"),
+        "y_test" : y_test .reset_index().to_json(orient="records"),
     } )
 
 
