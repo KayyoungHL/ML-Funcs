@@ -7,10 +7,11 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 # from category_encoders import OneHotEncoder, OrdinalEncoder, TargetEncoder
 
-def boolean(x):
-    if   x.lower() == "true" : return True
-    elif x.lower() == "false": return False
-
+from .internal_func import (
+    FUNCTIONS,
+    boolean,
+    isint,
+)
 
 async def set_feature_target_split(
     item : Request,
@@ -32,7 +33,7 @@ async def set_feature_target_split(
     str: JSON, {"X":feature_df, "y":target_df}
     ```
     """
-    df = pd.read_json(await item.json()).set_index("index")
+    df = pd.read_json(await item.json()).set_index("idx")
 
     dfcols = set(df.columns)
     try:    cols = [i.strip() for i in cols.split(",") if i.strip() != ""]
@@ -105,8 +106,8 @@ async def set_train_test_split(
     valid_size   = None    if valid_size   == "" else valid_size
 
     dfs = await item.json()
-    X = pd.read_json(dfs["X"]).set_index("index")
-    y = pd.read_json(dfs["y"]).set_index("index")
+    X = pd.read_json(dfs["X"]).set_index("idx")
+    y = pd.read_json(dfs["y"]).set_index("idx")
 
     ## test_size:    0 < test_size < 1 인 float
     if test_size is not None:

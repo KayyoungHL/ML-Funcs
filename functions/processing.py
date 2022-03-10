@@ -4,20 +4,10 @@ import json
 import pandas as pd
 # import modin.pandas as pd
 
-FUNCTIONS = {
-    "sum"   : lambda x: x.sum,
-    "count" : lambda x: x.count,
-    "mean"  : lambda x: x.mean,
-    "min"   : lambda x: x.min,
-    "max"   : lambda x: x.max,
-    "std"   : lambda x: x.std,
-    "median": lambda x: x.median,
-}
-
-def boolean(x):
-    if   x.lower() == "true" : return True
-    elif x.lower() == "false": return False
-
+from .internal_func import (
+    FUNCTIONS,
+    boolean,
+)
 
 # def split(x):
 #     try   : return [i.strip() for i in x.split(",") if i.strip() != ""]
@@ -25,8 +15,8 @@ def boolean(x):
 
 
 async def set_transpose(item: Request) -> str:
-    df = pd.read_json(await item.json()).set_index("index")
-    return df.transpose().reset_index().to_json(orient="records")
+    df = pd.read_json(await item.json()).set_index("idx")
+    return df.transpose().reset_index().rename({"index":"idx"}, axis=1).to_json(orient="records")
 
 
 async def set_groupby(
@@ -81,7 +71,7 @@ async def set_groupby(
     if not func in FUNCTIONS:
         return f'"{func}" is invalid function. "func" should be in {FUNCTIONS}'
     
-    df = pd.read_json(await item.json()).set_index("index")
+    df = pd.read_json(await item.json()).set_index("idx")
 
     ## by
     try:
@@ -140,7 +130,7 @@ async def set_groupby(
         dropna     = dropna
     )
     
-    return FUNCTIONS[func](df_group).reset_index().rename({"index":""}).to_json(orient="records")
+    return FUNCTIONS[func](df_group)().reset_index().rename({"index":""}).to_json(orient="records")
 
 
 async def set_drop(
@@ -183,7 +173,7 @@ async def set_drop(
     if errors not in ["raise", "ignore"]:
         return f'"errors" should be "raise" or "ignore". current errors = {errors}'
 
-    df = pd.read_json(await item.json()).set_index("index")
+    df = pd.read_json(await item.json()).set_index("idx")
 
     ## axis
     try:
@@ -278,7 +268,7 @@ async def set_dropna(
         except:
             return f'"thresh" should be positive integer. current thresh = {thresh}'
 
-    df = pd.read_json(await item.json()).set_index("index")
+    df = pd.read_json(await item.json()).set_index("idx")
 
     ## subset => dropna를 하면서 삭제하고 싶은 컬럼을 적으면 된다.
     # column label or sequence of labels, optional
@@ -337,7 +327,7 @@ async def set_rename(
     copy   = "true"   if copy   == "" else copy
     errors = "ignore" if errors == "" else errors
 
-    df = pd.read_json(await item.json()).set_index("index")
+    df = pd.read_json(await item.json()).set_index("idx")
 
     ## keys
     try:
@@ -418,7 +408,7 @@ async def set_sort_values(
     ig_idx = "false"     if ig_idx == "" else ig_idx
     key    = None        if key    == "" else key
 
-    df = pd.read_json(await item.json()).set_index("index")
+    df = pd.read_json(await item.json()).set_index("idx")
 
     ## by
     try:
@@ -532,8 +522,8 @@ async def set_merge(
     validate    = None    if validate    == "" else validate
 
     item = await item.json()
-    df_left = pd.read_json(item["left"]).set_index("index")
-    df_right = pd.read_json(item["right"]).set_index("index")
+    df_left = pd.read_json(item["left"]).set_index("idx")
+    df_right = pd.read_json(item["right"]).set_index("idx")
 
     ## how
     if how not in {"left", "right", "outer", "inner", "cross"}:
@@ -671,8 +661,8 @@ async def set_concat(
     copy       = "true"  if copy       == "" else copy
 
     item = await item.json()
-    df_left = pd.read_json(item["left"]).set_index("index")
-    df_right = pd.read_json(item["right"]).set_index("index")
+    df_left = pd.read_json(item["left"]).set_index("idx")
+    df_right = pd.read_json(item["right"]).set_index("idx")
 
     if type(df_left) == type(df_right) == pd.DataFrame:
         objs = [df_left, df_right]
@@ -807,7 +797,7 @@ async def set_column(
     func     = None if func     == "" else func
     cols_ops = None if cols_ops == "" else cols_ops
 
-    df = pd.read_json(await item.json()).set_index("index")
+    df = pd.read_json(await item.json()).set_index("idx")
     dfcols = set(df.columns)
     # left: df[col], right: some function
     # df[col] =
@@ -906,7 +896,7 @@ async def set_astype(item: Request, col:str, dtype:str) -> str:
     """
     if dtype not in ["int", "float", "category", "object", "datetime64[ns]"]:
         return f"{dtype}: 올바르지 않은 데이터 타입"
-    df = pd.read_json(await item.json()).set_index("index")
+    df = pd.read_json(await item.json()).set_index("idx")
     if col not in set(df.columns):
         return f"{col}: 존재하지 않는 컬럼"
     df[col] = df[col].astype(dtype)
