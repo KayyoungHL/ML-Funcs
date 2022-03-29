@@ -1,8 +1,11 @@
 from fastapi import UploadFile
 import pandas as pd
 # import modin.pandas as pd
+from .internal_func import (
+    check_error
+)
 
-
+@check_error
 async def create_upload_file(file: UploadFile):
     EXCEL = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     CSV   = "application/vnd.ms-excel"

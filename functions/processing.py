@@ -1,6 +1,5 @@
 from typing import Optional
 from fastapi import Request, Query
-import json
 import pandas as pd
 from collections import deque
 # import modin.pandas as pd
@@ -8,7 +7,6 @@ from collections import deque
 from .internal_func import (
     FUNCTIONS,
     boolean,
-    isint,
     check_error
 )
 

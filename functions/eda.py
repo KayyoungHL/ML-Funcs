@@ -7,7 +7,6 @@ import pandas as pd
 
 from .internal_func import (
     boolean,
-    isint,
     check_error
 )
 
